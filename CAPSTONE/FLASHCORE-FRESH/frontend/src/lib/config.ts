@@ -11,7 +11,7 @@ function parseEnvironment(raw: string | undefined): AppEnvironment {
 
 /** Single source of truth for build-time configuration. */
 export const config = {
-  apiBaseUrl: (import.meta.env.VITE_API_BASE_URL ?? '/api/v1').replace(/\/+$/, ''),
+  apiBaseUrl: (import.meta.env.VITE_API_BASE_URL ?? '/api').replace(/\/+$/, ''),
   apiTimeoutMs: parsePositiveInt(import.meta.env.VITE_API_TIMEOUT_MS, 15_000),
   environment: parseEnvironment(import.meta.env.VITE_APP_ENV),
   /** ASSUMPTION until API_CONTRACT.md confirms it. */

@@ -1,14 +1,15 @@
 ﻿from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.core.auth_dependencies import get_current_user, require_roles
 from app.core.database import get_db
 from app.models.auth import AuthSession, User
+from app.models.rossmann import AuditLog
 
 
 router = APIRouter(
@@ -156,3 +157,107 @@ def update_user_status(
     db.refresh(user)
 
     return user
+
+
+class AuditLogItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    occurred_at: datetime
+    actor: str
+    action: str
+    entity_type: str
+    entity_ref: str | None = None
+    outcome: str | None = None
+    metadata: dict | None = None
+
+
+class AuditLogListResponse(BaseModel):
+    items: list[AuditLogItem]
+    total: int
+    page: int
+    page_size: int
+
+
+def _sanitize_metadata(details: dict | None) -> dict | None:
+    if not details or not isinstance(details, dict):
+        return details
+    sanitized = {}
+    for k, v in details.items():
+        if any(secret_term in k.lower() for secret_term in ("password", "token", "secret", "hash", "key", "auth")):
+            sanitized[k] = "[REDACTED]"
+        elif isinstance(v, dict):
+            sanitized[k] = _sanitize_metadata(v)
+        else:
+            sanitized[k] = v
+    return sanitized
+
+
+@router.get("/audit-logs", response_model=AuditLogListResponse)
+def list_audit_logs(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100, alias="pageSize"),
+    action: str | None = None,
+    entity_type: str | None = Query(None, alias="entityType"),
+    outcome: str | None = None,
+    from_date: datetime | None = Query(None, alias="from"),
+    to_date: datetime | None = Query(None, alias="to"),
+    search: str | None = None,
+    db: Session = Depends(get_db),
+):
+    query = select(AuditLog)
+    count_query = select(func.count(AuditLog.id))
+
+    if action:
+        query = query.where(AuditLog.action == action)
+        count_query = count_query.where(AuditLog.action == action)
+    if entity_type:
+        query = query.where(AuditLog.entity_name == entity_type)
+        count_query = count_query.where(AuditLog.entity_name == entity_type)
+    if from_date:
+        query = query.where(AuditLog.created_at >= from_date)
+        count_query = count_query.where(AuditLog.created_at >= from_date)
+    if to_date:
+        query = query.where(AuditLog.created_at <= to_date)
+        count_query = count_query.where(AuditLog.created_at <= to_date)
+    if search:
+        search_filter = (
+            AuditLog.actor_ref.ilike(f"%{search}%")
+            | AuditLog.actor_type.ilike(f"%{search}%")
+            | AuditLog.action.ilike(f"%{search}%")
+            | AuditLog.entity_name.ilike(f"%{search}%")
+            | AuditLog.entity_id.ilike(f"%{search}%")
+        )
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
+
+    total = db.scalar(count_query) or 0
+    offset = (page - 1) * page_size
+    records = db.scalars(query.order_by(AuditLog.id.desc()).offset(offset).limit(page_size)).all()
+
+    items = []
+    for log in records:
+        actor = f"{log.actor_type}:{log.actor_ref}" if log.actor_ref else (log.actor_type or "system")
+        details = _sanitize_metadata(log.details)
+        out = "recorded"
+        if details and isinstance(details, dict):
+            out = details.get("status") or details.get("outcome") or "recorded"
+        if outcome and out.lower() != outcome.lower():
+            continue
+        items.append({
+            "id": str(log.id),
+            "occurred_at": log.created_at,
+            "actor": actor,
+            "action": log.action,
+            "entity_type": log.entity_name,
+            "entity_ref": str(log.entity_id) if log.entity_id else None,
+            "outcome": out,
+            "metadata": details,
+        })
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }

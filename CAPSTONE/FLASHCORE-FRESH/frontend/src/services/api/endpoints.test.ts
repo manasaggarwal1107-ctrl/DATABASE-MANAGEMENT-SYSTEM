@@ -16,7 +16,8 @@ describe('endpoint registry', () => {
       {
         endpoint: endpoints.analytics.orderVolume,
         path: '/rossmann/sales/customers-trend',
-      },      {
+      },
+      {
         endpoint: endpoints.analytics.promotionAnalysis,
         path: '/rossmann/sales/promotion-analysis',
       },
@@ -60,66 +61,89 @@ describe('endpoint registry', () => {
     for (const { endpoint, method, path } of simulationEndpoints) {
       expect(endpoint).toMatchObject({ status: 'confirmed', method, path });
     }
+
     const authEndpoints = [
-  {
-    endpoint: endpoints.auth.signup,
-    method: 'POST',
-    path: '/auth/signup',
-  },
-  {
-    endpoint: endpoints.auth.login,
-    method: 'POST',
-    path: '/auth/login',
-  },
-  {
-    endpoint: endpoints.auth.me,
-    method: 'GET',
-    path: '/auth/me',
-  },
-  {
-    endpoint: endpoints.auth.logout,
-    method: 'POST',
-    path: '/auth/logout',
-  },
-] as const;
+      {
+        endpoint: endpoints.auth.signup,
+        method: 'POST',
+        path: '/auth/signup',
+      },
+      {
+        endpoint: endpoints.auth.login,
+        method: 'POST',
+        path: '/auth/login',
+      },
+      {
+        endpoint: endpoints.auth.me,
+        method: 'GET',
+        path: '/auth/me',
+      },
+      {
+        endpoint: endpoints.auth.logout,
+        method: 'POST',
+        path: '/auth/logout',
+      },
+    ] as const;
 
-for (const { endpoint, method, path } of authEndpoints) {
-  expect(endpoint).toMatchObject({
-    status: 'confirmed',
-    method,
-    path,
-  });
-}
+    for (const { endpoint, method, path } of authEndpoints) {
+      expect(endpoint).toMatchObject({
+        status: 'confirmed',
+        method,
+        path,
+      });
+    }
 
-const inventoryEndpoints = [
-  {
-    endpoint: endpoints.inventory.list,
-    method: 'GET',
-    path: '/simulations/inventory',
-  },
-  {
-    endpoint: endpoints.inventory.adjust,
-    method: 'POST',
-    path: '/simulations/inventory/:inventory_id/adjust',
-  },
-] as const;
+    const inventoryEndpoints = [
+      {
+        endpoint: endpoints.inventory.list,
+        method: 'GET',
+        path: '/simulations/inventory',
+      },
+      {
+        endpoint: endpoints.inventory.adjust,
+        method: 'POST',
+        path: '/simulations/inventory/:inventory_id/adjust',
+      },
+    ] as const;
 
-for (const { endpoint, method, path } of inventoryEndpoints) {
-  expect(endpoint).toMatchObject({
-    status: 'confirmed',
-    method,
-    path,
-  });
-}
+    for (const { endpoint, method, path } of inventoryEndpoints) {
+      expect(endpoint).toMatchObject({
+        status: 'confirmed',
+        method,
+        path,
+      });
+    }
 
-const confirmedIds = new Set([
-  'transactions.list',
-  'transactions.get',
-  ...confirmedEndpoints.map(({ endpoint }) => endpoint.id),
-  ...simulationEndpoints.map(({ endpoint }) => endpoint.id),
-  ...authEndpoints.map(({ endpoint }) => endpoint.id),
-  ...inventoryEndpoints.map(({ endpoint }) => endpoint.id),
-]);
+    const additionalConfirmedEndpoints = [
+      { endpoint: endpoints.overview.salesSeries, method: 'GET', path: '/rossmann/sales/trend' },
+      { endpoint: endpoints.overview.purchaseOutcomes, method: 'GET', path: '/simulations/analytics/purchase-outcomes' },
+      { endpoint: endpoints.overview.inventoryAllocation, method: 'GET', path: '/simulations/analytics/inventory-allocation' },
+      { endpoint: endpoints.overview.flashSalePerformance, method: 'GET', path: '/simulations/analytics/flash-sales-overview' },
+      { endpoint: endpoints.overview.activity, method: 'GET', path: '/simulations/analytics/activity' },
+      { endpoint: endpoints.concurrency.strategies, method: 'GET', path: '/simulations/strategies' },
+      { endpoint: endpoints.imports.list, method: 'GET', path: '/imports' },
+      { endpoint: endpoints.imports.get, method: 'GET', path: '/imports/:id' },
+      { endpoint: endpoints.audit.list, method: 'GET', path: '/admin/audit-logs' },
+      { endpoint: endpoints.system.health, method: 'GET', path: '/health' },
+    ] as const;
+
+    for (const { endpoint, method, path } of additionalConfirmedEndpoints) {
+      expect(endpoint).toMatchObject({
+        status: 'confirmed',
+        method,
+        path,
+      });
+    }
+
+    const confirmedIds = new Set([
+      'transactions.list',
+      'transactions.get',
+      ...confirmedEndpoints.map(({ endpoint }) => endpoint.id),
+      ...simulationEndpoints.map(({ endpoint }) => endpoint.id),
+      ...authEndpoints.map(({ endpoint }) => endpoint.id),
+      ...inventoryEndpoints.map(({ endpoint }) => endpoint.id),
+      ...additionalConfirmedEndpoints.map(({ endpoint }) => endpoint.id),
+    ]);
 
     for (const spec of allEndpoints()) {
       if (!confirmedIds.has(spec.id)) {
@@ -166,7 +190,3 @@ describe('pagination adapter', () => {
     expect(toQuery({ page: 2, pageSize: 25, search: 'x', filters: { status: 'active' } })).toMatchObject({ page: 2, pageSize: 25, search: 'x', status: 'active' });
   });
 });
-
-
-
-

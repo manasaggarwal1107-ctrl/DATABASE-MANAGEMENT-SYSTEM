@@ -1,5 +1,5 @@
-import { useNavigate } from 'react-router-dom';
-import { ShieldCheck } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Info, ShieldCheck } from 'lucide-react';
 import { OriginBadge, StatusBadge } from '@/components/ui/Badge';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ResourceTable, originFilter } from '@/components/tables/ResourceTable';
@@ -29,6 +29,19 @@ export function CustomersPage() {
           </span>
         }
       />
+
+      <div className="mb-4 flex items-start gap-3 rounded-lg border border-line bg-surface-raised p-4 text-xs text-ink-muted">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden />
+        <div>
+          <span className="font-semibold text-ink">Entity Architecture Notice: </span>
+          First-class standalone <code className="font-mono text-ink">customers</code> tables do not exist in the relational database model. Customer references exist pseudonymously within purchase attempts. See the{' '}
+          <Link to="/transactions" className="font-medium text-accent hover:underline">
+            Transaction Monitor
+          </Link>{' '}
+          for customer reference activity.
+        </div>
+      </div>
+
       <ResourceTable<Customer>
         endpoint={endpoints.customers.list}
         caption="Customers"

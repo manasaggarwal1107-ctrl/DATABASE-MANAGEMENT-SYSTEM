@@ -1133,3 +1133,168 @@ def get_transaction(
 
     return _transaction_monitor_item(row)
 
+
+
+
+# ---------------- CONCURRENCY STRATEGIES & OVERVIEW ANALYTICS ----------------
+
+@router.get("/strategies")
+def get_strategies():
+    return {
+        "items": [
+            {"id": "atomic_update", "label": "Atomic Update (Optimistic)"},
+            {"id": "select_for_update", "label": "Select for Update (Pessimistic)"},
+        ]
+    }
+
+
+@router.get(
+    "/analytics/purchase-outcomes",
+    dependencies=[Depends(require_roles("admin", "analyst"))],
+)
+def analytics_purchase_outcomes(
+    from_date: datetime | None = Query(None, alias="from"),
+    to_date: datetime | None = Query(None, alias="to"),
+    db: Session = Depends(get_db),
+):
+    start, end = analytics_period(from_date, to_date)
+    row = db.execute(
+        text("""
+            SELECT
+                COUNT(*) FILTER (WHERE status = 'success') AS successful,
+                COUNT(*) FILTER (WHERE status = 'failed') AS failed,
+                COUNT(*) FILTER (WHERE status = 'rejected') AS rejected,
+                COUNT(*) FILTER (WHERE status = 'pending') AS pending,
+                MIN(created_at) AS period_start,
+                MAX(created_at) AS period_end
+            FROM purchase_attempts
+            WHERE (CAST(:start AS TIMESTAMPTZ) IS NULL OR created_at >= CAST(:start AS TIMESTAMPTZ))
+              AND (CAST(:end AS TIMESTAMPTZ) IS NULL OR created_at <= CAST(:end AS TIMESTAMPTZ))
+        """),
+        {"start": start, "end": end},
+    ).mappings().one()
+
+    return {
+        "successful": int(row["successful"] or 0),
+        "failed": int(row["failed"] or 0),
+        "rejected": int(row["rejected"] or 0),
+        "pending": int(row["pending"] or 0),
+        "period_start": row["period_start"].isoformat() if row["period_start"] else None,
+        "period_end": row["period_end"].isoformat() if row["period_end"] else None,
+        "origin": "simulation",
+    }
+
+
+@router.get(
+    "/analytics/inventory-allocation",
+    dependencies=[Depends(require_roles("admin", "analyst"))],
+)
+def analytics_inventory_allocation(db: Session = Depends(get_db)):
+    phys = db.execute(
+        text("""
+            SELECT
+                COALESCE(SUM(quantity), 0) AS on_hand,
+                COALESCE(SUM(reserved_quantity), 0) AS reserved,
+                COALESCE(SUM(quantity - reserved_quantity), 0) AS available
+            FROM simulation_inventory
+        """)
+    ).mappings().one()
+
+    flash = db.execute(
+        text("""
+            SELECT
+                COALESCE(SUM(stock_limit), 0) AS allocated,
+                COALESCE(SUM(sold_quantity), 0) AS sold,
+                COALESCE(SUM(stock_limit - sold_quantity), 0) AS remaining
+            FROM flash_sale_products
+        """)
+    ).mappings().one()
+
+    sold_phys = db.execute(
+        text("SELECT COALESCE(SUM(quantity), 0) FROM purchase_attempts WHERE status = 'success'")
+    ).scalar() or 0
+
+    return {
+        "physical": {
+            "on_hand": int(phys["on_hand"]),
+            "reserved": int(phys["reserved"]),
+            "sold": int(sold_phys),
+            "available": int(phys["available"]),
+        },
+        "flash_sale": {
+            "allocated": int(flash["allocated"]),
+            "sold": int(flash["sold"]),
+            "remaining": int(flash["remaining"]),
+        },
+        "origin": "simulation",
+    }
+
+
+@router.get(
+    "/analytics/flash-sales-overview",
+    dependencies=[Depends(require_roles("admin", "analyst"))],
+)
+def analytics_flash_sales_overview(db: Session = Depends(get_db)):
+    rows = db.execute(
+        text("""
+            SELECT
+                fs.id,
+                fs.title AS name,
+                fs.status,
+                COALESCE(SUM(fsp.stock_limit), 0) AS allocated,
+                COALESCE(SUM(fsp.sold_quantity), 0) AS sold,
+                COALESCE(SUM(fsp.stock_limit - fsp.sold_quantity), 0) AS remaining
+            FROM flash_sales fs
+            LEFT JOIN flash_sale_products fsp ON fsp.flash_sale_id = fs.id
+            GROUP BY fs.id, fs.title, fs.status
+            ORDER BY fs.id DESC
+            LIMIT 10
+        """)
+    ).mappings().all()
+
+    return {
+        "items": [
+            {
+                "id": str(r["id"]),
+                "name": r["name"],
+                "status": r["status"],
+                "allocated": int(r["allocated"]),
+                "sold": int(r["sold"]),
+                "remaining": int(r["remaining"]),
+                "origin": "simulation",
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.get(
+    "/analytics/activity",
+    dependencies=[Depends(require_roles("admin", "analyst"))],
+)
+def analytics_activity(db: Session = Depends(get_db)):
+    rows = db.execute(
+        text("""
+            SELECT id, action, outcome, created_at
+            FROM transactions_log
+            ORDER BY created_at DESC
+            LIMIT 20
+        """)
+    ).mappings().all()
+
+    items = []
+    for r in rows:
+        summary = None
+        if r["outcome"] and isinstance(r["outcome"], dict):
+            summary = r["outcome"].get("message") or r["outcome"].get("detail")
+        if not summary:
+            summary = f"Transaction {r['action']}"
+        items.append({
+            "id": str(r["id"]),
+            "occurred_at": r["created_at"].isoformat() if r["created_at"] else None,
+            "kind": r["action"],
+            "summary": summary,
+            "origin": "simulation",
+        })
+
+    return {"items": items}

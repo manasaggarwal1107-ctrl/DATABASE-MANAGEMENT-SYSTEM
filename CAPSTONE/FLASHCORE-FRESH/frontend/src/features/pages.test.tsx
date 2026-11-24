@@ -22,18 +22,18 @@ afterEach(() => vi.unstubAllGlobals());
 describe('with no API contract (all endpoints pending)', () => {
   it('Overview requests and displays the Rossmann historical sales summary', async () => {
     fetchMock.mockResolvedValue({
-  ok: true,
-  status: 200,
-  headers: new Headers({ 'content-type': 'application/json' }),
-  text: async () =>
-    JSON.stringify({
-      total_records: 1017209,
-      total_sales: 5873180623,
-      average_sales: 5773.818972305593,
-      highest_sales: 41551,
-      total_customers: 644041755,
-    }),
-});
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      text: async () =>
+        JSON.stringify({
+          total_records: 1017209,
+          total_sales: 5873180623,
+          average_sales: 5773.818972305593,
+          highest_sales: 41551,
+          total_customers: 644041755,
+        }),
+    });
 
     renderWithProviders(<OverviewPage />);
 
@@ -60,11 +60,29 @@ describe('with no API contract (all endpoints pending)', () => {
     expect(fetchMock).toHaveBeenCalled();
   });
 
-  it('System Health shows local config but invents no backend status', () => {
+  it('System Health shows local config and renders verified backend status', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      text: async () =>
+        JSON.stringify({
+          status: 'healthy',
+          version: '1.0.0',
+          database: 'flashcore_rossmann',
+          services: [
+            { name: 'FastAPI Application', status: 'healthy', detail: 'Operational (v1.0.0)' },
+            { name: 'PostgreSQL Database', status: 'healthy', detail: 'Connected to flashcore_rossmann' },
+          ],
+          checkedAt: '2026-11-24T12:00:00Z',
+        }),
+    });
+
     renderWithProviders(<SystemHealthPage />);
     expect(screen.getByText('This frontend')).toBeInTheDocument();
-    expect(screen.getAllByText('Awaiting API contract').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Backend')).toBeInTheDocument();
+    expect(await screen.findByText('FastAPI Application')).toBeInTheDocument();
+    expect(screen.getByText('PostgreSQL Database')).toBeInTheDocument();
   });
 
   it('Concurrency Lab labels everything as simulation and enables the verified Run action', () => {
@@ -106,20 +124,20 @@ describe('form validation in the UI', () => {
 describe('data transformations', () => {
   it('metricState never converts a missing value into zero', () => {
     const base: {
-  live: boolean;
-  isPending: boolean;
-  isError: boolean;
-  error: unknown;
-  data: { totalProducts: number } | undefined;
-} = {
-  live: true,
-  isPending: false,
-  isError: false,
-  error: null,
-  data: {
-    totalProducts: 0,
-  },
-};
+      live: boolean;
+      isPending: boolean;
+      isError: boolean;
+      error: unknown;
+      data: { totalProducts: number } | undefined;
+    } = {
+      live: true,
+      isPending: false,
+      isError: false,
+      error: null,
+      data: {
+        totalProducts: 0,
+      },
+    };
     expect(metricState<{ totalProducts: number }, 'totalProducts'>({ ...base, data: undefined }, 'totalProducts', String)).toEqual({ kind: 'unavailable' });
     expect(metricState({ ...base, data: { totalProducts: null } as never }, 'totalProducts', String)).toEqual({ kind: 'unavailable' });
     expect(metricState({ ...base, data: { totalProducts: 0 } as never }, 'totalProducts', String)).toEqual({ kind: 'value', value: '0' });
@@ -146,7 +164,3 @@ describe('data transformations', () => {
     expect(periodRange('7d', now).from).toBe('2026-11-12T12:00:00.000Z');
   });
 });
-
-
-
-

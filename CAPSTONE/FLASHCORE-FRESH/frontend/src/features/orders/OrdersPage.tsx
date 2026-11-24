@@ -1,4 +1,5 @@
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { Info } from 'lucide-react';
 import { OriginBadge, StatusBadge } from '@/components/ui/Badge';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ResourceTable, originFilter } from '@/components/tables/ResourceTable';
@@ -24,6 +25,19 @@ export function OrdersPage() {
   return (
     <div>
       <PageHeader title="Orders" description="Processed orders with their transaction reference and data origin." />
+
+      <div className="mb-4 flex items-start gap-3 rounded-lg border border-line bg-surface-raised p-4 text-xs text-ink-muted">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden />
+        <div>
+          <span className="font-semibold text-ink">Entity Architecture Notice: </span>
+          First-class standalone <code className="font-mono text-ink">orders</code> tables do not exist in the relational database model. Individual customer purchase attempts and inventory transactions are recorded in the{' '}
+          <Link to="/transactions" className="font-medium text-accent hover:underline">
+            Transaction Monitor
+          </Link>
+          .
+        </div>
+      </div>
+
       <ResourceTable<Order>
         endpoint={endpoints.orders.list}
         caption="Orders"

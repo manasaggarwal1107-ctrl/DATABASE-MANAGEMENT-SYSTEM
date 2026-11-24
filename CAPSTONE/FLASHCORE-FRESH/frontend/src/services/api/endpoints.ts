@@ -74,18 +74,47 @@ export const endpoints = {
   },
   overview: {
     summary: {
-  id: 'overview.summary',
-  label: 'Rossmann historical sales summary',
-  method: 'GET',
-  path: '/rossmann/sales/summary',
-  status: 'confirmed',
-},
-
-    salesSeries: pending('overview.salesSeries', 'GET', 'Sales over time'),
-    purchaseOutcomes: pending('overview.purchaseOutcomes', 'GET', 'Purchase success / failure distribution'),
-    inventoryAllocation: pending('overview.inventoryAllocation', 'GET', 'Inventory allocation'),
-    flashSalePerformance: pending('overview.flashSalePerformance', 'GET', 'Flash sale performance'),
-    activity: pending('overview.activity', 'GET', 'Recent activity / transaction timeline'),
+      id: 'overview.summary',
+      label: 'Rossmann historical sales summary',
+      method: 'GET',
+      path: '/rossmann/sales/summary',
+      status: 'confirmed',
+    },
+    salesSeries: {
+      id: 'overview.salesSeries',
+      label: 'Sales over time',
+      method: 'GET',
+      path: '/rossmann/sales/trend',
+      status: 'confirmed',
+    },
+    purchaseOutcomes: {
+      id: 'overview.purchaseOutcomes',
+      label: 'Purchase success / failure distribution',
+      method: 'GET',
+      path: '/simulations/analytics/purchase-outcomes',
+      status: 'confirmed',
+    },
+    inventoryAllocation: {
+      id: 'overview.inventoryAllocation',
+      label: 'Inventory allocation',
+      method: 'GET',
+      path: '/simulations/analytics/inventory-allocation',
+      status: 'confirmed',
+    },
+    flashSalePerformance: {
+      id: 'overview.flashSalePerformance',
+      label: 'Flash sale performance',
+      method: 'GET',
+      path: '/simulations/analytics/flash-sales-overview',
+      status: 'confirmed',
+    },
+    activity: {
+      id: 'overview.activity',
+      label: 'Recent activity / transaction timeline',
+      method: 'GET',
+      path: '/simulations/analytics/activity',
+      status: 'confirmed',
+    },
   },
     products: {
     list: {
@@ -250,18 +279,48 @@ export const endpoints = {
       path: '/simulations/runs',
       status: 'confirmed',
     },
-    strategies: pending('concurrency.strategies', 'GET', 'List concurrency strategies'),
+    strategies: {
+      id: 'concurrency.strategies',
+      label: 'List concurrency strategies',
+      method: 'GET',
+      path: '/simulations/strategies',
+      status: 'confirmed',
+    },
   },
   imports: {
-    list: pending('imports.list', 'GET', 'List imports'),
-    get: pending('imports.get', 'GET', 'Get import (with error report)'),
+    list: {
+      id: 'imports.list',
+      label: 'List imports',
+      method: 'GET',
+      path: '/imports',
+      status: 'confirmed',
+    },
+    get: {
+      id: 'imports.get',
+      label: 'Get import (with error report)',
+      method: 'GET',
+      path: '/imports/:id',
+      status: 'confirmed',
+    },
     upload: pending('imports.upload', 'POST', 'Upload CSV'),
   },
   audit: {
-    list: pending('audit.list', 'GET', 'List audit log entries'),
+    list: {
+      id: 'audit.list',
+      label: 'List audit log entries',
+      method: 'GET',
+      path: '/admin/audit-logs',
+      status: 'confirmed',
+    },
   },
   system: {
-    health: pending('system.health', 'GET', 'System health'),
+    health: {
+      id: 'system.health',
+      label: 'System health',
+      method: 'GET',
+      path: '/health',
+      status: 'confirmed',
+    },
   },
 } satisfies Record<string, Record<string, EndpointSpec>>;
 

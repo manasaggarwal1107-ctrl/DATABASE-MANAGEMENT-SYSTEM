@@ -13,6 +13,7 @@ from sqlalchemy import (
     ForeignKey,
     Text,
     TIMESTAMP,
+    JSON,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -105,3 +106,33 @@ class DailyStoreSale(Base):
         ForeignKey("dataset_imports.id")
     )
     source_row_number: Mapped[int | None] = mapped_column(Integer)
+
+
+class DatasetImportError(Base):
+    __tablename__ = "dataset_import_errors"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    import_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("dataset_imports.id"), nullable=False
+    )
+    source_row_number: Mapped[int | None] = mapped_column(Integer)
+    raw_record: Mapped[dict | None] = mapped_column(JSON)
+    error_message: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=text("NOW()")
+    )
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    actor_type: Mapped[str | None] = mapped_column(String(50))
+    actor_ref: Mapped[str | None] = mapped_column(String(200))
+    action: Mapped[str] = mapped_column(String(100), nullable=False)
+    entity_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    entity_id: Mapped[str | None] = mapped_column(String(100))
+    details: Mapped[dict | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=text("NOW()")
+    )
