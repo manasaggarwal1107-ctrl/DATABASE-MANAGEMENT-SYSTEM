@@ -685,27 +685,48 @@ def purchase(
 
     attempt_status = "rejected" if failure else "success"
 
-    attempt = fetch_one(
-        db,
-        """
-        INSERT INTO purchase_attempts
-            (simulation_run_id, flash_sale_product_id, customer_ref,
-             idempotency_key, quantity, status, failure_reason)
-        VALUES
-            (:run_id, :product_id, :customer, :key, :quantity,
-             :status, :reason)
-        RETURNING *
-        """,
-        {
-            "run_id": sale["simulation_run_id"],
-            "product_id": sale_product_id,
-            "customer": payload.customer_ref,
-            "key": payload.idempotency_key,
-            "quantity": payload.quantity,
-            "status": attempt_status,
-            "reason": failure,
-        },
-    )
+    try:
+        attempt = fetch_one(
+            db,
+            """
+            INSERT INTO purchase_attempts
+                (simulation_run_id, flash_sale_product_id, customer_ref,
+                 idempotency_key, quantity, status, failure_reason)
+            VALUES
+                (:run_id, :product_id, :customer, :key, :quantity,
+                 :status, :reason)
+            RETURNING *
+            """,
+            {
+                "run_id": sale["simulation_run_id"],
+                "product_id": sale_product_id,
+                "customer": payload.customer_ref,
+                "key": payload.idempotency_key,
+                "quantity": payload.quantity,
+                "status": attempt_status,
+                "reason": failure,
+            },
+        )
+    except IntegrityError as exc:
+        db.rollback()
+        existing = fetch_one(
+            db,
+            "SELECT * FROM purchase_attempts WHERE idempotency_key=:key",
+            {"key": payload.idempotency_key},
+        )
+        if existing:
+            if (
+                existing["customer_ref"] == payload.customer_ref
+                and existing["flash_sale_product_id"] == sale_product_id
+                and existing["quantity"] == payload.quantity
+            ):
+                return {"duplicate": True, "attempt": dict(existing)}
+            raise HTTPException(
+                409, "Idempotency key was used by another request"
+            ) from exc
+        raise HTTPException(
+            409, "Purchase conflicts with a database constraint"
+        ) from exc
 
     if not failure:
         # All stock changes occur within the same database transaction.
